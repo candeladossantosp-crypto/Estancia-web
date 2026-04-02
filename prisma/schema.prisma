@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String        @id @default(cuid())
+  name        String
+  users       User[]
+  employees   Employee[]
+  animals     Animal[]
+  commandLogs CommandLog[]
+  createdAt   DateTime      @default(now())
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model Employee {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fullName         String
+  monthlySalary    Float
+  advanceAmount    Float    @default(0)
+  advanceYearMonth String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Animal {
+  id              String         @id @default(cuid())
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  caravan         String
+  characteristics String         @default("")
+  purchasePrice   Float?
+  purchaseDate    DateTime?
+  weights         AnimalWeight[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([companyId, caravan])
+}
+
+model AnimalWeight {
+  id        String   @id @default(cuid())
+  animalId  String
+  animal    Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  date      DateTime
+  weightKg  Float
+  createdAt DateTime @default(now())
+
+  @@index([animalId, date])
+}
+
+model CommandLog {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rawText   String
+  result    String
+  success   Boolean
+  createdAt DateTime @default(now())
+}
