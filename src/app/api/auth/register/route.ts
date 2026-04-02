@@ -3,6 +3,11 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { signSessionToken, setSessionCookie } from "@/lib/auth";
+import {
+  inferErrorFromMessage,
+  isAuthSecretError,
+  prismaErrorMessage,
+} from "@/lib/api-errors";
 
 const schema = z.object({
   companyName: z.string().min(2).max(120),
@@ -21,7 +26,8 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const { companyName, name, email, password } = parsed.data;
+    const { companyName, name, password } = parsed.data;
+    const email = parsed.data.email.trim().toLowerCase();
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -59,6 +65,27 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error(e);
+    if (isAuthSecretError(e)) {
+      return NextResponse.json(
+        {
+          error:
+            "Falta AUTH_SECRET en el servidor (mínimo 32 caracteres). Revisá variables de entorno en Hostinger.",
+        },
+        { status: 500 },
+      );
+    }
+    const prismaMsg =
+      prismaErrorMessage(e) ?? inferErrorFromMessage(e);
+    if (prismaMsg) {
+      return NextResponse.json({ error: prismaMsg }, { status: 500 });
+    }
+    if (process.env.NODE_ENV === "development") {
+      const m = e instanceof Error ? e.message : String(e);
+      return NextResponse.json(
+        { error: `Error al registrar (detalle dev): ${m}` },
+        { status: 500 },
+      );
+    }
     return NextResponse.json({ error: "Error al registrar" }, { status: 500 });
   }
 }
